@@ -1,6 +1,9 @@
+import math
 import random
+
 import streamlit as st
 
+from agent import GuessingAgent
 from logic_utils import (
     check_guess,
     get_range_for_difficulty,
@@ -37,7 +40,7 @@ if "secret" not in st.session_state:
     st.session_state.secret = random.randint(low, high)
 
 if "attempts" not in st.session_state:
-    st.session_state.attempts = 1
+    st.session_state.attempts = 0
 
 if "score" not in st.session_state:
     st.session_state.score = 0
@@ -46,6 +49,20 @@ if "status" not in st.session_state:
     st.session_state.status = "playing"
 
 if "history" not in st.session_state:
+    st.session_state.history = []
+
+# Switching difficulty has to start a fresh round, otherwise the old secret can
+# sit outside the new range and the game (or the AI solver) gets stuck on a
+# number that isn't even possible anymore.
+if "difficulty" not in st.session_state:
+    st.session_state.difficulty = difficulty
+
+if st.session_state.difficulty != difficulty:
+    st.session_state.difficulty = difficulty
+    st.session_state.secret = random.randint(low, high)
+    st.session_state.attempts = 0
+    st.session_state.score = 0
+    st.session_state.status = "playing"
     st.session_state.history = []
 
 st.subheader("Make a guess")
@@ -76,10 +93,51 @@ with col3:
     show_hint = st.checkbox("Show hint", value=True)
 
 if new_game:
+    # Full reset: a new round has to clear the score, status, and history and
+    # pick the secret from the *current* difficulty range, not always 1-100.
     st.session_state.attempts = 0
-    st.session_state.secret = random.randint(1, 100)
+    st.session_state.secret = random.randint(low, high)
+    st.session_state.score = 0
+    st.session_state.status = "playing"
+    st.session_state.history = []
     st.success("New game started.")
     st.rerun()
+
+st.divider()
+st.subheader("🤖 AI Auto-Solver")
+st.caption(
+    "Let the agent play this round on its own. It halves the range on every "
+    "guess, reads the hint, and checks the hints stay consistent before "
+    "trusting them."
+)
+
+if st.button("Watch the AI play 👀"):
+    worst_case = math.ceil(math.log2(high - low + 1)) + 1
+    solver = GuessingAgent(low, high, max_attempts=worst_case)
+    solver.play(st.session_state.secret)
+
+    st.table([
+        {
+            "Attempt": s.attempt,
+            "Guess": s.guess,
+            "Hint": s.outcome,
+            "Range left": f"{s.low}-{s.high}",
+            "Confidence": s.confidence,
+        }
+        for s in solver.log
+    ])
+
+    if solver.status == "won":
+        st.success(
+            f"The agent found {st.session_state.secret} in "
+            f"{solver.attempt} guesses."
+        )
+    elif solver.status == "stuck":
+        st.error("The agent stopped: the hints contradicted each other.")
+    else:
+        st.warning("The agent used up its attempt budget without winning.")
+
+st.divider()
 
 if st.session_state.status != "playing":
     if st.session_state.status == "won":
