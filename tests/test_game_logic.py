@@ -1,8 +1,13 @@
+import pytest
+
 from logic_utils import (
     check_guess,
     get_attempt_limit,
     get_range_for_difficulty,
+    guesses_for_range,
     guesses_needed,
+    parse_guess,
+    update_score,
 )
 
 
@@ -48,7 +53,9 @@ def test_too_low_hint_direction_string_secret():
 # The original code had Easy=1..20, Normal=1..100, Hard=1..50, so Hard had a
 # SMALLER range than Normal (making it the easiest). Attempts were also
 # inconsistent (Easy=6, Normal=8, Hard=5). A harder level must mean a bigger
-# guessing range AND fewer attempts.
+# guessing range, and less headroom above the guesses that range actually
+# needs. It can't mean fewer attempts outright, because a bigger range needs
+# more of them.
 
 
 def _range_size(difficulty):
@@ -83,3 +90,45 @@ def test_headroom_shrinks_with_difficulty():
         return get_attempt_limit(difficulty) - guesses_needed(difficulty)
 
     assert headroom("Easy") > headroom("Normal") > headroom("Hard")
+
+
+# --- parse_guess and update_score, the two the game leans on hardest ---
+
+
+def test_parse_guess_rejects_empty_and_junk():
+    assert parse_guess("") == (False, None, "Enter a guess.")
+    assert parse_guess("abc")[0] is False
+
+
+def test_parse_guess_reads_plain_numbers():
+    assert parse_guess("42") == (True, 42, None)
+
+
+def test_parse_guess_truncates_decimals():
+    # 42.9 becomes 42, so the player is judged on a number they didn't type.
+    # Pinning it because the app relies on getting an int back either way.
+    assert parse_guess("42.9") == (True, 42, None)
+
+
+def test_parse_guess_does_not_check_the_range():
+    # It only guards the format. app.py is what keeps an out-of-range guess
+    # from reaching the game.
+    assert parse_guess("999999") == (True, 999999, None)
+
+
+def test_winning_early_scores_more_than_winning_late():
+    assert update_score(0, "Win", 1) > update_score(0, "Win", 5)
+
+
+def test_score_never_drops_below_ten_for_a_win():
+    assert update_score(0, "Win", 99) == 10
+
+
+def test_every_wrong_guess_costs_the_same():
+    assert update_score(100, "Too High", 1) == 95
+    assert update_score(100, "Too Low", 4) == 95
+
+
+def test_guesses_for_range_rejects_an_empty_range():
+    with pytest.raises(ValueError):
+        guesses_for_range(0)
