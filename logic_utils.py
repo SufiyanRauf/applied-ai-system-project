@@ -12,14 +12,21 @@ def get_range_for_difficulty(difficulty: str):
     return 1, 100
 
 
-def guesses_needed(difficulty: str):
-    """Worst-case guesses binary search needs to cover this range.
+def guesses_for_range(size: int):
+    """Worst-case guesses binary search needs for a range holding `size` numbers.
 
     floor(log2(n)) + 1, not ceil(log2(n)). The two agree unless n is a power of
     two, where ceil is one too low: a range of 64 really does need 7 guesses.
     """
+    if size < 1:
+        raise ValueError(f"range must hold at least one number, got {size}")
+    return math.floor(math.log2(size)) + 1
+
+
+def guesses_needed(difficulty: str):
+    """Worst-case guesses binary search needs to cover a difficulty's range."""
     low, high = get_range_for_difficulty(difficulty)
-    return math.floor(math.log2(high - low + 1)) + 1
+    return guesses_for_range(high - low + 1)
 
 
 def get_attempt_limit(difficulty: str):
