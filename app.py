@@ -1,4 +1,3 @@
-import math
 import random
 
 import streamlit as st
@@ -6,7 +5,9 @@ import streamlit as st
 from agent import GuessingAgent
 from logic_utils import (
     check_guess,
+    get_attempt_limit,
     get_range_for_difficulty,
+    guesses_needed,
     parse_guess,
     update_score,
 )
@@ -14,7 +15,7 @@ from logic_utils import (
 st.set_page_config(page_title="Glitchy Guesser", page_icon="🎮")
 
 st.title("🎮 Game Glitch Investigator")
-st.caption("An AI-generated guessing game. Something is off.")
+st.caption("An AI-generated guessing game. Debugged, tested, and now it plays itself.")
 
 st.sidebar.header("Settings")
 
@@ -24,14 +25,8 @@ difficulty = st.sidebar.selectbox(
     index=1,
 )
 
-attempt_limit_map = {
-    "Easy": 8,
-    "Normal": 6,
-    "Hard": 5,
-}
-attempt_limit = attempt_limit_map[difficulty]
-
 low, high = get_range_for_difficulty(difficulty)
+attempt_limit = get_attempt_limit(difficulty)
 
 st.sidebar.caption(f"Range: {low} to {high}")
 st.sidebar.caption(f"Attempts allowed: {attempt_limit}")
@@ -112,8 +107,7 @@ st.caption(
 )
 
 if st.button("Watch the AI play 👀"):
-    worst_case = math.ceil(math.log2(high - low + 1)) + 1
-    solver = GuessingAgent(low, high, max_attempts=worst_case)
+    solver = GuessingAgent(low, high, max_attempts=guesses_needed(difficulty))
     solver.play(st.session_state.secret)
 
     st.table([
