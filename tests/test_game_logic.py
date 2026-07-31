@@ -1,4 +1,9 @@
-from app import attempt_limit_map, check_guess, get_range_for_difficulty
+from logic_utils import (
+    check_guess,
+    get_attempt_limit,
+    get_range_for_difficulty,
+    guesses_needed,
+)
 
 
 def test_winning_guess():
@@ -23,8 +28,8 @@ def test_guess_too_low_says_go_higher():
 
 
 def test_too_high_hint_direction_string_secret():
-    # App stringifies the secret on even attempts, exercising the
-    # except TypeError fallback in check_guess.
+    # check_guess coerces with int(), so a string secret still compares as a
+    # number. The app no longer passes one, but nothing stops another caller.
     outcome, message = check_guess(60, "50")
     assert outcome == "Too High"
     assert "LOWER" in message
@@ -63,12 +68,18 @@ def test_hard_range_is_larger_than_normal():
     assert hard_high > normal_high
 
 
-def test_attempts_shrink_with_difficulty():
-    # Harder difficulty => fewer (or equal, never more) attempts.
-    assert (
-        attempt_limit_map["Easy"]
-        >= attempt_limit_map["Normal"]
-        >= attempt_limit_map["Hard"]
-    )
-    # And the extremes must be strictly ordered: Easy gives more than Hard.
-    assert attempt_limit_map["Easy"] > attempt_limit_map["Hard"]
+def test_every_difficulty_is_winnable():
+    # The old limits (Easy 8, Normal 6, Hard 5) made Normal and Hard impossible
+    # to win even playing perfectly, because they were picked by hand instead of
+    # from the range. Perfect play has to fit inside the limit.
+    for difficulty in ("Easy", "Normal", "Hard"):
+        assert get_attempt_limit(difficulty) >= guesses_needed(difficulty)
+
+
+def test_headroom_shrinks_with_difficulty():
+    # Harder can't mean fewer guesses, since the range grows. What shrinks is
+    # the slack you get above the minimum.
+    def headroom(difficulty):
+        return get_attempt_limit(difficulty) - guesses_needed(difficulty)
+
+    assert headroom("Easy") > headroom("Normal") > headroom("Hard")

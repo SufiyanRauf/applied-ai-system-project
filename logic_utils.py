@@ -1,3 +1,6 @@
+import math
+
+
 def get_range_for_difficulty(difficulty: str):
     """Return (low, high) inclusive range for a given difficulty."""
     if difficulty == "Easy":
@@ -7,6 +10,28 @@ def get_range_for_difficulty(difficulty: str):
     if difficulty == "Hard":
         return 1, 200
     return 1, 100
+
+
+def guesses_needed(difficulty: str):
+    """Worst-case guesses binary search needs to cover this range.
+
+    floor(log2(n)) + 1, not ceil(log2(n)). The two agree unless n is a power of
+    two, where ceil is one too low: a range of 64 really does need 7 guesses.
+    """
+    low, high = get_range_for_difficulty(difficulty)
+    return math.floor(math.log2(high - low + 1)) + 1
+
+
+def get_attempt_limit(difficulty: str):
+    """How many attempts the player gets.
+
+    Derived from the range instead of hand-picked, because the old fixed numbers
+    left Normal and Hard unwinnable even with perfect play. Harder difficulty
+    can't mean fewer guesses when the range is bigger, so what shrinks is the
+    headroom above the minimum.
+    """
+    headroom = {"Easy": 3, "Normal": 2, "Hard": 1}
+    return guesses_needed(difficulty) + headroom.get(difficulty, 2)
 
 
 def parse_guess(raw: str):
