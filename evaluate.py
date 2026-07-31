@@ -1,8 +1,8 @@
 """Reliability harness for the guessing agent.
 
 Runs the agent across a whole range of secret numbers and prints a summary so
-you can see how it performs without playing by hand. It also runs a guardrail
-check: when the game gives dishonest hints, the agent should notice and stop
+you can see how it performs without playing by hand. Then it does the same thing
+with a game that lies about every hint, and checks the agent notices and stops
 instead of looping forever.
 
 Run it with:  python evaluate.py
@@ -28,32 +28,64 @@ def run_range(difficulty):
 
     results = []
     for secret in range(low, high + 1):
-        agent = GuessingAgent(low, high, max_attempts=worst_case)
+        # Deliberately generous cap. If the agent is capped at the same number
+        # the report compares against, "worst attempts within the bound" is
+        # true by construction and proves nothing.
+        agent = GuessingAgent(low, high, max_attempts=(high - low + 2))
         agent.play(secret)
         results.append(agent)
 
     wins = [a for a in results if a.status == "won"]
-    attempts = [a.attempt for a in wins]
-    win_confidence = [a.log[-1].confidence for a in wins]
 
     print(f"Difficulty: {difficulty}  (range {low}-{high})")
     print(f"  Games played:     {len(results)}")
     print(f"  Wins:             {len(wins)}/{len(results)}")
+    if not wins:
+        print("  No wins, so there are no attempt stats to report.")
+        return False
+
+    attempts = [a.attempt for a in wins]
+    win_confidence = [a.log[-1].confidence for a in wins]
     print(f"  Avg attempts:     {sum(attempts) / len(attempts):.2f}")
     print(f"  Worst attempts:   {max(attempts)} (theoretical cap {worst_case})")
     print(f"  Avg confidence:   {sum(win_confidence) / len(win_confidence):.2f}")
     return len(wins) == len(results) and max(attempts) <= worst_case
 
 
-def run_guardrail_check():
-    low, high = get_range_for_difficulty("Normal")
-    agent = GuessingAgent(low, high, max_attempts=20)
-    agent.play(42, judge=lying_judge)
+def run_guardrail_sweep(difficulty="Normal"):
+    # Testing the guardrail on one secret isn't enough, since the guardrail is
+    # the whole point. Run the lying game against every secret in the range.
+    low, high = get_range_for_difficulty(difficulty)
+    opening_guess = (low + high) // 2
+    cap = high - low + 2  # backstop so a broken guardrail stops instead of hanging
 
-    print("Guardrail check: agent vs. a game that lies")
-    print(f"  Final status:     {agent.status}")
-    print(f"  Note:             {agent.log[-1].note or '(none)'}")
-    return agent.status == "stuck"
+    caught = []
+    won = []
+    lost = []
+    for secret in range(low, high + 1):
+        agent = GuessingAgent(low, high, max_attempts=cap)
+        agent.play(secret, judge=lying_judge)
+        if agent.status == "stuck":
+            caught.append(secret)
+        elif agent.status == "won":
+            won.append(secret)
+        else:
+            lost.append(secret)
+
+    total = high - low + 1
+    print("Guardrail sweep: agent vs. a game that lies on every hint")
+    print(f"  Range:            {low}-{high}")
+    print(f"  Caught (stuck):   {len(caught)}/{total}")
+    print(f"  Won anyway:       {won}")
+    if lost:
+        print(f"  Ran out of turns: {lost}")
+    print(f"  Why:              {opening_guess} is the agent's first guess, so it")
+    print(f"                    wins before the liar ever gets to flip a hint")
+
+    # The only secret that may escape is the opening guess, and only by winning
+    # on move 1 before the game has had a chance to lie. Anything else, including
+    # running out of turns, is a guardrail failure.
+    return won == [opening_guess] and not lost
 
 
 def main():
@@ -66,7 +98,7 @@ def main():
         checks.append(run_range(difficulty))
         print()
 
-    guardrail_ok = run_guardrail_check()
+    guardrail_ok = run_guardrail_sweep()
     checks.append(guardrail_ok)
     print()
 
@@ -74,7 +106,7 @@ def main():
     print("=" * 55)
     print(f"Summary: {passed}/{len(checks)} checks passed")
     if guardrail_ok:
-        print("The agent solves every honest game and safely stops on a liar.")
+        print("The agent solves every honest game and stops on every lie it sees.")
     print("=" * 55)
 
 
