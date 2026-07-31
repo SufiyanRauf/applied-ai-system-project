@@ -141,14 +141,18 @@ if st.session_state.status != "playing":
     st.stop()
 
 if submit:
-    st.session_state.attempts += 1
-
     ok, guess_int, err = parse_guess(raw_guess)
 
     if not ok:
-        st.session_state.history.append(raw_guess)
+        # Input that never reached the game shouldn't cost an attempt, and it
+        # used to: the counter was incremented before the guess was parsed, so
+        # typing junk could push "attempts left" negative without ever ending
+        # the round.
         st.error(err)
+    elif not low <= guess_int <= high:
+        st.error(f"Guess a number between {low} and {high}.")
     else:
+        st.session_state.attempts += 1
         st.session_state.history.append(guess_int)
 
         # FIX: Pass the int secret straight to check_guess (removed the
@@ -172,14 +176,13 @@ if submit:
                 f"You won! The secret was {st.session_state.secret}. "
                 f"Final score: {st.session_state.score}"
             )
-        else:
-            if st.session_state.attempts >= attempt_limit:
-                st.session_state.status = "lost"
-                st.error(
-                    f"Out of attempts! "
-                    f"The secret was {st.session_state.secret}. "
-                    f"Score: {st.session_state.score}"
-                )
+        elif st.session_state.attempts >= attempt_limit:
+            st.session_state.status = "lost"
+            st.error(
+                f"Out of attempts! "
+                f"The secret was {st.session_state.secret}. "
+                f"Score: {st.session_state.score}"
+            )
 
 st.divider()
 st.caption("Built by an AI that claims this code is production-ready.")
