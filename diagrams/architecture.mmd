@@ -1,0 +1,44 @@
+flowchart TD
+    subgraph UI["Streamlit App (app.py)"]
+        human["Human player<br/>guess input"]
+        watch["Watch the AI play<br/>button"]
+    end
+
+    subgraph Logic["Game Logic (logic_utils.py)"]
+        parse["parse_guess<br/>input validation guardrail"]
+        judge["check_guess<br/>returns Too High / Too Low / Win"]
+        score["update_score"]
+    end
+
+    subgraph Agent["Agentic Solver (agent.py)"]
+        plan["plan<br/>pick midpoint of range"]
+        revise["revise<br/>narrow the range"]
+        guardrail["consistency check<br/>stop if hints contradict"]
+        conf["confidence score + step log"]
+    end
+
+    subgraph Eval["Reliability Harness (evaluate.py, demo.py + tests/)"]
+        harness["evaluate.py<br/>run every secret, summarize"]
+        lie["lying_judge<br/>guardrail stress test"]
+        demo["demo.py<br/>prints the README samples"]
+        pytest["pytest<br/>unit + regression tests"]
+    end
+
+    human --> parse --> judge --> score --> UI
+    watch --> plan
+    plan --> judge
+    judge -->|hint| revise
+    revise --> guardrail
+    guardrail -->|consistent, attempts left| plan
+    guardrail -->|contradiction: stuck| conf
+    guardrail -->|answer it can't read: stuck| conf
+    guardrail -->|attempt cap reached: lost| conf
+    revise --> conf
+    conf --> UI
+
+    Agent --> harness
+    Agent --> demo
+    lie --> Agent
+    harness --> report["Pass/fail + win-rate report"]
+    pytest --> report
+    report --> review["Human reviews results<br/>before trusting the system"]
