@@ -74,11 +74,17 @@ class GuessingAgent:
         if self.status != "playing":
             # The round is over. Stepping again would keep inflating the
             # attempt count that the app and the harness both report.
-            return self.log[-1]
+            return self.log[-1] if self.log else None
 
         guess = self.plan()
         self.attempt += 1
-        outcome, message = judge(guess, secret)
+        answer = judge(guess, secret)
+        if isinstance(answer, tuple) and len(answer) == 2:
+            outcome, _ = answer
+        else:
+            # A judge that doesn't even answer in the right shape is just
+            # another answer the agent can't read.
+            outcome = f"malformed answer {answer!r}"
         self.revise(guess, outcome)
 
         note = ""

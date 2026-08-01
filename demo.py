@@ -3,7 +3,7 @@
 I use this to check the agent still behaves the same after I change something,
 and the output is what I pasted into the README as the example interactions.
 
-Run it with:  python demo.py
+Run it with:  python3 demo.py
 """
 
 from agent import GuessingAgent
@@ -32,8 +32,8 @@ def normal_round(secret=63):
 
 def lying_round(secret=42):
     print(f"lying game, secret = {secret}")
-    # The attempt cap is here so a broken guardrail shows up as a stopped game
-    # instead of hanging the terminal.
+    # A loose cap on purpose, so it's the guardrail that stops this run and not
+    # the cap. The agent always has a cap now, so nothing can hang either way.
     agent = GuessingAgent(1, 100, max_attempts=20)
     agent.play(secret, judge=lying_judge)
     print_log(agent, show_confidence=False)

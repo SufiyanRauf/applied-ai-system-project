@@ -51,11 +51,13 @@ def test_too_low_hint_direction_string_secret():
 # --- Regression tests for the "difficulty is backwards" bug ---
 #
 # The original code had Easy=1..20, Normal=1..100, Hard=1..50, so Hard had a
-# SMALLER range than Normal (making it the easiest). Attempts were also
-# inconsistent (Easy=6, Normal=8, Hard=5). A harder level must mean a bigger
-# guessing range, and less headroom above the guesses that range actually
-# needs. It can't mean fewer attempts outright, because a bigger range needs
-# more of them.
+# SMALLER range than Normal (making it the easiest). Attempts were backwards
+# too (Easy=6, Normal=8, Hard=5), so picking an easier level gave you fewer
+# guesses. I retuned them by hand to Easy=8, Normal=6, Hard=5, which fixed the
+# ordering but left Normal and Hard unwinnable, because I never checked the
+# numbers against the range size. They come from the range now: a harder level
+# means a bigger range and less headroom above the guesses that range needs.
+# It can't mean fewer attempts outright, because a bigger range needs more.
 
 
 def _range_size(difficulty):
@@ -130,5 +132,11 @@ def test_every_wrong_guess_costs_the_same():
 
 
 def test_guesses_for_range_rejects_an_empty_range():
-    with pytest.raises(ValueError):
+    # match= matters: without it, math.log2(0) raising on its own would pass.
+    with pytest.raises(ValueError, match="at least one number"):
         guesses_for_range(0)
+
+
+def test_guesses_for_range_on_a_power_of_two():
+    # The whole reason for floor+1 over ceil. 64 really needs 7.
+    assert guesses_for_range(64) == 7

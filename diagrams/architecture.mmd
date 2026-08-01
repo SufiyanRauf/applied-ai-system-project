@@ -13,7 +13,10 @@ flowchart TD
     subgraph Agent["Agentic Solver (agent.py)"]
         plan["plan<br/>pick midpoint of range"]
         revise["revise<br/>narrow the range"]
-        guardrail["consistency check<br/>stop if hints contradict"]
+        guardrail["stop checks<br/>win, unreadable answer,<br/>contradiction, attempt cap"]
+        won["status: won<br/>secret found"]
+        stuck["status: stuck<br/>refuses to keep guessing"]
+        lost["status: lost<br/>attempt cap reached"]
         conf["confidence score + step log"]
     end
 
@@ -29,16 +32,19 @@ flowchart TD
     plan --> judge
     judge -->|hint| revise
     revise --> guardrail
-    guardrail -->|consistent, attempts left| plan
-    guardrail -->|contradiction: stuck| conf
-    guardrail -->|answer it can't read: stuck| conf
-    guardrail -->|attempt cap reached: lost| conf
-    revise --> conf
+    guardrail -->|none fire, keep going| plan
+    guardrail -->|Win| won
+    guardrail -->|contradiction or unreadable answer| stuck
+    guardrail -->|out of attempts| lost
+    won --> conf
+    stuck --> conf
+    lost --> conf
     conf --> UI
 
     Agent --> harness
     Agent --> demo
     lie --> Agent
     harness --> report["Pass/fail + win-rate report"]
+    demo --> review
     pytest --> report
     report --> review["Human reviews results<br/>before trusting the system"]

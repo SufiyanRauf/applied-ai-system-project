@@ -62,10 +62,20 @@ if st.session_state.difficulty != difficulty:
 
 st.subheader("Make a guess")
 
-st.info(
-    f"Guess a number between {low} and {high}. "
-    f"Attempts left: {attempt_limit - st.session_state.attempts}"
-)
+# Streamlit renders top to bottom, so this has to be a placeholder: the submit
+# handler further down changes the count, and without filling it again the
+# banner would still show the count from before this guess.
+attempts_banner = st.empty()
+
+
+def show_attempts_left():
+    attempts_banner.info(
+        f"Guess a number between {low} and {high}. "
+        f"Attempts left: {attempt_limit - st.session_state.attempts}"
+    )
+
+
+show_attempts_left()
 
 with st.expander("Developer Debug Info"):
     st.write("Secret:", st.session_state.secret)
@@ -95,7 +105,6 @@ if new_game:
     st.session_state.score = 0
     st.session_state.status = "playing"
     st.session_state.history = []
-    st.success("New game started.")
     st.rerun()
 
 st.divider()
@@ -127,7 +136,7 @@ if st.button("Watch the AI play 👀"):
             f"{solver.attempt} guesses."
         )
     elif solver.status == "stuck":
-        st.error("The agent stopped: the hints contradicted each other.")
+        st.error(f"The agent stopped: {solver.log[-1].note}")
     else:
         st.warning("The agent used up its attempt budget without winning.")
 
@@ -183,6 +192,8 @@ if submit:
                 f"The secret was {st.session_state.secret}. "
                 f"Score: {st.session_state.score}"
             )
+
+        show_attempts_left()
 
 st.divider()
 st.caption("Built by an AI that claims this code is production-ready.")

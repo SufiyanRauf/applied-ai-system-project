@@ -6,7 +6,7 @@ back, narrows its range, and checks that the narrowed range is still possible
 until it wins. A reliability harness runs the agent across every possible secret
 number and reports how it did.
 
-## Base project (Modules 1-3)
+## Base project (Module 1)
 
 This builds on my Module 1 project, the "Game Glitch Investigator." That was a
 debugging exercise: an AI had written a Streamlit number-guessing game that was
@@ -41,6 +41,8 @@ This is fully wired into the app. The "Watch the AI play" button in `app.py`
 runs the agent against the current round and shows every step, so the AI feature
 actually drives the game rather than sitting off to the side.
 
+The agent's reasoning traces are saved in [ai_interactions.md](ai_interactions.md).
+
 ## Architecture overview
 
 The source is in [diagrams/architecture.mmd](diagrams/architecture.mmd), and it
@@ -62,7 +64,10 @@ flowchart TD
     subgraph Agent["Agentic Solver (agent.py)"]
         plan["plan<br/>pick midpoint of range"]
         revise["revise<br/>narrow the range"]
-        guardrail["consistency check<br/>stop if hints contradict"]
+        guardrail["stop checks<br/>win, unreadable answer,<br/>contradiction, attempt cap"]
+        won["status: won<br/>secret found"]
+        stuck["status: stuck<br/>refuses to keep guessing"]
+        lost["status: lost<br/>attempt cap reached"]
         conf["confidence score + step log"]
     end
 
@@ -78,17 +83,20 @@ flowchart TD
     plan --> judge
     judge -->|hint| revise
     revise --> guardrail
-    guardrail -->|consistent, attempts left| plan
-    guardrail -->|contradiction: stuck| conf
-    guardrail -->|answer it can't read: stuck| conf
-    guardrail -->|attempt cap reached: lost| conf
-    revise --> conf
+    guardrail -->|none fire, keep going| plan
+    guardrail -->|Win| won
+    guardrail -->|contradiction or unreadable answer| stuck
+    guardrail -->|out of attempts| lost
+    won --> conf
+    stuck --> conf
+    lost --> conf
     conf --> UI
 
     Agent --> harness
     Agent --> demo
     lie --> Agent
     harness --> report["Pass/fail + win-rate report"]
+    demo --> review
     pytest --> report
     report --> review["Human reviews results<br/>before trusting the system"]
 ```
@@ -120,6 +128,8 @@ the whole thing behaves before I trust it.
 ## Setup
 
 ```
+python3 -m venv .venv
+source .venv/bin/activate
 python3 -m pip install -r requirements.txt
 ```
 
@@ -138,7 +148,7 @@ python3 evaluate.py
 Run the tests:
 
 ```
-pytest
+python3 -m pytest
 ```
 
 ## Sample interactions
@@ -227,7 +237,7 @@ parse_guess("42.9")    -> (True, 42, None)
 
 ## Testing summary
 
-All 25 tests pass and the reliability harness passes all 4 of its checks.
+All 30 tests pass and the reliability harness passes all 4 of its checks.
 
 The harness plays 320 honest games (every secret from 1 to 20, 1 to 100, and 1 to
 200) and the agent wins every one. Average attempts were 3.7 on Easy, 5.8 on
@@ -254,18 +264,18 @@ Full output is in the section below.
 ### `pytest`
 
 ```
-$ pytest
+$ python3 -m pytest
 ============================= test session starts ==============================
 platform darwin -- Python 3.9.6, pytest-8.4.2, pluggy-1.6.0
 rootdir: /Users/sufiyanrauf/Desktop/applied-ai-system-project
 configfile: pytest.ini
 testpaths: tests
-collected 25 items
+collected 30 items
 
-tests/test_agent.py ........                                             [ 32%]
-tests/test_game_logic.py .................                               [100%]
+tests/test_agent.py ............                                         [ 40%]
+tests/test_game_logic.py ..................                              [100%]
 
-============================== 25 passed in 0.02s ==============================
+============================== 30 passed in 0.02s ==============================
 ```
 
 ### `python3 evaluate.py`

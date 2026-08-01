@@ -5,7 +5,7 @@ you can see how it performs without playing by hand. Then it does the same thing
 with a game that lies about every hint, and checks the agent notices and stops
 instead of looping forever.
 
-Run it with:  python evaluate.py
+Run it with:  python3 evaluate.py
 """
 
 from agent import GuessingAgent
@@ -56,8 +56,10 @@ def run_guardrail_sweep(difficulty="Normal"):
     # Testing the guardrail on one secret isn't enough, since the guardrail is
     # the whole point. Run the lying game against every secret in the range.
     low, high = get_range_for_difficulty(difficulty)
-    opening_guess = (low + high) // 2
-    cap = high - low + 2  # backstop so a broken guardrail stops instead of hanging
+    # Ask the agent what it would open with rather than assuming the midpoint,
+    # so this stays true if plan() ever changes.
+    opening_guess = GuessingAgent(low, high).plan()
+    cap = high - low + 2  # loose, so the guardrail is what stops the run, not the cap
 
     caught = []
     won = []
@@ -79,13 +81,14 @@ def run_guardrail_sweep(difficulty="Normal"):
     print(f"  Won anyway:       {won}")
     if lost:
         print(f"  Ran out of turns: {lost}")
-    print(f"  Why:              {opening_guess} is the agent's first guess, so it")
-    print(f"                    wins before the liar ever gets to flip a hint")
-
     # The only secret that may escape is the opening guess, and only by winning
     # on move 1 before the game has had a chance to lie. Anything else, including
     # running out of turns, is a guardrail failure.
-    return won == [opening_guess] and not lost
+    passed = won == [opening_guess] and not lost
+    if passed:
+        print(f"  Why:              {opening_guess} is the agent's first guess, so it")
+        print(f"                    wins before the liar ever gets to flip a hint")
+    return passed
 
 
 def main():
@@ -105,9 +108,11 @@ def main():
     passed = sum(checks)
     print("=" * 55)
     print(f"Summary: {passed}/{len(checks)} checks passed")
-    if guardrail_ok:
+    if all(checks):
         print("The agent solves every honest game and stops on every lie it sees.")
     print("=" * 55)
+    # Exit non-zero on failure so this can gate something, not just report.
+    raise SystemExit(0 if all(checks) else 1)
 
 
 if __name__ == "__main__":
