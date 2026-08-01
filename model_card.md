@@ -44,11 +44,14 @@ one that runs forever. It reports a step log and a confidence score.
   way to test a bound directly instead of only guessing midpoints, so it could
   check whether the answer is even inside the range it was handed.
 - **Catch a game that lies only sometimes.** The consistency check fires when the
-  bounds cross, which is what a game that flips *every* hint produces. A game that
-  lies occasionally, or one that answers honestly about a different number, keeps
-  the bounds legal the whole way and the agent will report a confident win on the
-  wrong answer. The fix is to re-check every hint it has seen against its current
-  range rather than only checking that the range is non-empty.
+  bounds cross, so it does catch an occasional liar, but it gets worse the later
+  the lie lands. A single lie on the first turn is caught in 99 of 100 games, on
+  the third turn 93, and on the sixth only 37, because a late lie has fewer turns
+  left to push a bound off the end of the range. A judge that answers honestly
+  about a *different* number never crosses the bounds at all, so the agent reports
+  a confident win on the wrong answer. The fix for both is to re-check every hint
+  it has seen against its current range rather than only checking that the range
+  is non-empty.
 - **Move the range check into shared logic.** The app now turns away a guess
   outside the current range, and `parse_guess` stays format-only on purpose, with
   a test that pins it letting `999999` through. The gap left is that the range
