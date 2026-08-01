@@ -93,6 +93,9 @@ flowchart TD
     report --> review["Human reviews results<br/>before trusting the system"]
 ```
 
+A rendered image of the same diagram is at
+[assets/architecture.png](assets/architecture.png).
+
 The system has four parts:
 
 - **Streamlit app (`app.py`)** is the interface. A person can play by hand, or
